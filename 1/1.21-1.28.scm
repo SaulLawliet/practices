@@ -49,15 +49,15 @@
 ;; Testing
 ;; 现代的电脑计算 10^3, 10^4, 10^5, 10^6 的时间很快, 看不出效果
 ;; 所以改为计算 10^10, 10^11, 10^12, 10^13
-;;(define a10 (search-for-primes (expt 10 10)))
-;;(define a11 (search-for-primes (expt 10 11)))
-;;(define a12 (search-for-primes (expt 10 12)))
-;;(define a13 (search-for-primes (expt 10 13)))
-;;
-;;;; 计算比率, 发现跟 √10(=3.16227766017) 很接近
-;;(/ a11 a10)
-;;(/ a12 a11)
-;;(/ a13 a12)
+(define a10 (search-for-primes (expt 10 10)))
+(define a11 (search-for-primes (expt 10 11)))
+(define a12 (search-for-primes (expt 10 12)))
+(define a13 (search-for-primes (expt 10 13)))
+
+;; 计算比率, 发现跟 √10(=3.16227766017) 很接近
+(/ a11 a10)
+(/ a12 a11)
+(/ a13 a12)
 
 
 ;; 1.23
@@ -70,17 +70,17 @@
         (else (find-divisor n (next test-divisor)))))
 
 ;; Testing
-;;(define b10 (search-for-primes (expt 10 10)))
-;;(define b11 (search-for-primes (expt 10 11)))
-;;(define b12 (search-for-primes (expt 10 12)))
-;;(define b13 (search-for-primes (expt 10 13)))
-;;
-;;;; 我的测试比率大概在 1.6 左右
-;;;; 可能的原因是: 1: 额外的函数开销, 2: 额外的逻辑判断(if)
-;;(/ a10 b10)
-;;(/ a11 b11)
-;;(/ a12 b12)
-;;(/ a13 b13)
+(define b10 (search-for-primes (expt 10 10)))
+(define b11 (search-for-primes (expt 10 11)))
+(define b12 (search-for-primes (expt 10 12)))
+(define b13 (search-for-primes (expt 10 13)))
+
+;; 我的测试比率大概在 1.6 左右
+;; 可能的原因是: 1: 额外的函数开销, 2: 额外的逻辑判断(if)
+(/ a10 b10)
+(/ a11 b11)
+(/ a12 b12)
+(/ a13 b13)
 
 
 ;; 1.24
