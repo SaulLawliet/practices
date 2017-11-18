@@ -1,4 +1,4 @@
-;; You nee RACKET(http://racket-lang.org) to run.
+;; You need RACKET(http://racket-lang.org) to run.
 #lang racket
 (require (planet "sicp.ss" ("soegaard" "sicp.plt" 2 1)))
 
