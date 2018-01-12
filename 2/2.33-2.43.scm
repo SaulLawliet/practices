@@ -13,12 +13,9 @@
   (accumulate (lambda (x y) (+ y 1)) 0 sequence))
 
 ;; Testing
-;; (1 4 9 16)
-(map-my square (list 1 2 3 4))
-;; (1 2 3 4)
-(append-my (list 1 2) (list 3 4))
-;; 4
-(length-my (list 1 2 3 4))
+(equal? (map-my square (list 1 2 3 4)) '(1 4 9 16))
+(equal? (append-my (list 1 2) (list 3 4)) '(1 2 3 4))
+(= (length-my (list 1 2 3 4)) 4)
 
 
 ;; 2.34
@@ -51,7 +48,8 @@
             (accumulate-n op init (map cdr seqs)))))
 
 ;; Testing (22 26 30)
-(accumulate-n + 0 (list (list 1 2 3) (list 4 5 6) (list 7 8 9) (list 10 11 12)))
+(equal? (accumulate-n + 0 (list (list 1 2 3) (list 4 5 6) (list 7 8 9) (list 10 11 12)))
+        '(22 26 30))
 
 
 ;; 2.37
@@ -66,14 +64,13 @@
     (map (lambda (x) (matrix-*-vecotr cols x)) m)))
 
 ;; Testing
-;; 11
-(dot-product (list 1 2) (list 3 4))
-;; (50 122)
-(matrix-*-vecotr (list (list 1 2 3) (list 4 5 6)) (list 7 8 9))
-;; ((1 4 7) (2 5 8) (3 6 9))
-(transpose (list (list 1 2 3) (list 4 5 6) (list 7 8 9)))
-;; ((5 1) (4 2))
-(matrix-*-matrix (list (list 1 0 2) (list -1 3 1)) (list (list 3 1) (list 2 1) (list 1 0)))
+(= (dot-product (list 1 2) (list 3 4)) 11)
+(equal? (matrix-*-vecotr (list (list 1 2 3) (list 4 5 6)) (list 7 8 9))
+        '(50 122))
+(equal? (transpose (list (list 1 2 3) (list 4 5 6) (list 7 8 9)))
+        '((1 4 7) (2 5 8) (3 6 9)))
+(equal? (matrix-*-matrix (list (list 1 0 2) (list -1 3 1)) (list (list 3 1) (list 2 1) (list 1 0)))
+        '((5 1) (4 2)))
 
 
 ;; 2.38
@@ -88,13 +85,13 @@
 ;; Testing
 ;; op 需要满足交换律时, fold-right 和 fold-left 的结果相同
 ;; 3/1 = 3, 2/3 = 2/3, 1/(2/3) = 3/2
-(fold-right / 1 (list 1 2 3))
+(equal? (fold-right / 1 (list 1 2 3)) 3/2)
 ;; 1/1 = 1, 1/2 = 1/2, 1/2/3 = 1/6
-(fold-left / 1 (list 1 2 3))
+(equal? (fold-left / 1 (list 1 2 3)) 1/6)
 ;; (3 ()) -> (2 (3 ())) -> (1 (2 (3 ())))
-(fold-right list nil (list 1 2 3))
+(equal? (fold-right list nil (list 1 2 3)) '(1 (2 (3 ()))))
 ;; (() 1) -> ((() 1) 2) -> (((() 1) 2) 3)
-(fold-left list nil (list 1 2 3))
+(equal? (fold-left list nil (list 1 2 3)) '(((() 1) 2) 3))
 
 
 ;; 2.39
@@ -104,8 +101,8 @@
   (fold-left (lambda (x y) (cons y x)) nil sequence))
 
 ;; Testing
-(reverse-right (list 1 2 3))
-(reverse-left (list 1 2 3))
+(equal? (reverse-right (list 1 2 3)) '(3 2 1))
+(equal? (reverse-left (list 1 2 3))  '(3 2 1))
 
 
 ;; 2.40
@@ -134,15 +131,17 @@
 (define (make-pair-sum pair)
   (list (car pair) (cadr pair) (+ (car pair) (cadr pair))))
 
+(define prime-sum-pairs-old (prime-sum-pairs 6))
+
 (define (unique-pairs n)
   (flatmap (lambda (i) (map (lambda (j) (list i j)) (enumerate-interval 1 (- i 1))))
            (enumerate-interval 1 n)))
 
 (define (prime-sum-pairs n)
-  (map make-pair-sum (filter prime-sum? (unique-pairs n))))
+ (map make-pair-sum (filter prime-sum? (unique-pairs n))))
 
 ;; Testing
-(prime-sum-pairs 6)
+(equal? prime-sum-pairs-old (prime-sum-pairs 6))
 
 
 ;; 2.41
@@ -160,7 +159,7 @@
           (unique-triples n)))
 
 ;; Testing
-(ordered-triples-sum 6 12)
+(equal? (ordered-triples-sum 6 12) '((5 4 3) (6 4 2) (6 5 1)))
 
 
 ;; 2.42

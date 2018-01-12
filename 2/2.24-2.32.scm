@@ -35,7 +35,7 @@
 
 ;; Testing
 (define x (list (list 1 2) (list 3 4)))
-(deep-reverse x)
+(equal? (deep-reverse x) (list (list 4 3) (list 2 1)))
 
 
 ;; 2.28
@@ -47,8 +47,8 @@
 
 ;; Testing
 (define x (list (list 1 2) (list 3 4)))
-(fringe x)
-(fringe (list x x))
+(equal? (fringe x) (list 1 2 3 4))
+(equal? (fringe (list x x)) (list 1 2 3 4 1 2 3 4))
 
 
 ;; 2.29
@@ -124,7 +124,8 @@
         (else (cons (square-tree (car tree))
                     (square-tree (cdr tree))))))
 ;; Testing
-(square-tree (list 1 (list 2) (list 3 4) 5))
+(equal? (square-tree (list 1 (list 2 (list 3 4) 5) (list 6 7)))
+        '(1 (4 (9 16) 25) (36 49)))
 
 ;; b)
 (define (square-tree tree)
@@ -134,7 +135,8 @@
              (square sub-tree)))
        tree))
 ;; Testing
-(square-tree (list 1 (list 2) (list 3 4) 5))
+(equal? (square-tree (list 1 (list 2 (list 3 4) 5) (list 6 7)))
+        '(1 (4 (9 16) 25) (36 49)))
 
 
 ;; 2.31
@@ -147,7 +149,8 @@
 
 ;; Testing
 (define (square-tree tree) (tree-map square tree))
-(square-tree (list 1 (list 2) (list 3 4) 5))
+(equal? (square-tree (list 1 (list 2 (list 3 4) 5) (list 6 7)))
+        '(1 (4 (9 16) 25) (36 49)))
 
 
 ;; 2.32
@@ -158,4 +161,5 @@
         (append rest (map (lambda (x) (cons (car s) x))
                           rest)))))
 ;; Testing
-(subsets (list 1 2 3))
+(equal? (subsets (list 1 2 3))
+        '(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3)))

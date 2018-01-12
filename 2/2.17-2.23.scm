@@ -22,18 +22,18 @@
       (append (reverse (cdr items)) (list (car items)))))
 
 ;; Testing
-(reverse (list 1 4 9 16 25))
+(equal? (reverse (list 1 4 9 16 25)) (list 25 16 9 4 1))
 
 
 ;; 2.19
 (define (cc amount coin-values)
   (cond ((= amount 0) 1)
         ((or (< amount 0) (no-more? coin-values)) 0)
-        (else (+ (cc amount (expect-first-denomination coin-values))
+        (else (+ (cc amount (except-first-denomination coin-values))
                  (cc (- amount (first-denomination coin-values)) coin-values)))))
 
 (define (first-denomination coin-values) (car coin-values))
-(define (expect-first-denomination coin-values) (cdr coin-values))
+(define (except-first-denomination coin-values) (cdr coin-values))
 (define (no-more? coin-values) (null? coin-values))
 
 ;; Testing
@@ -56,8 +56,8 @@
   (iter (list first) rest))
 
 ;; Testing
-(same-parity 1 2 3 4 5 6 7)
-(same-parity 2 3 4 5 6 7)
+(equal? (same-parity 1 2 3 4 5 6 7) (list 1 3 5 7))
+(equal? (same-parity 2 3 4 5 6 7)   (list 2 4 6))
 
 
 ;; 2.21
@@ -67,14 +67,14 @@
       ()
       (cons (square (car items)) (square-list (cdr items)))))
 ;; Testing
-(square-list (list 1 2 3 4))
+(equal? (square-list (list 1 2 3 4)) (list 1 4 9 16))
 
 ;; b)
 (define (square-list items)
   (map square items))
 
 ;; Testing
-(square-list (list 1 2 3 4))
+(equal? (square-list (list 1 2 3 4)) (list 1 4 9 16))
 
 
 ;; 2.22

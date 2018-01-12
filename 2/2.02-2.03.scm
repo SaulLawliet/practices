@@ -23,6 +23,7 @@
      (/ (+ (y-point p1) (y-point p2)) 2.0))))
 
 ;; Testing
+;; (2.5,2.5)
 (print-point (midpoint-segment
               (make-segment (make-point 0 0)
                             (make-point 5 5))))
