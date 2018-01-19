@@ -48,9 +48,9 @@
   (define (angle z) (cdr z))
   (define (make-from-mag-ang r a) (cons r a))
   (define (real-part z)
-    (* (magnitude z) (cos (angle z))))
+    (mul (magnitude z) (cos (angle z))))
   (define (imag-part z)
-    (* (magnitude z) (sin (angle z))))
+    (mul (magnitude z) (sin (angle z))))
   (define (make-from-real-imag x y)
     (cons (sqrt (+ (square x) (square y)))
           (atan y x)))
@@ -68,10 +68,6 @@
   'done)
 
 (define (apply-generic op . args)
-  ;; (newline)
-  ;; (display op)
-  ;; (newline)
-  ;; (display args)
   (let ((type-tags (map type-tag args)))
     (let ((proc (get op type-tags)))
       (if proc
@@ -103,12 +99,19 @@
        (lambda (x y) (tag (* x y))))
   (put 'div '(scheme-number scheme-number)
        (lambda (x y) (tag (/ x y))))
-  (put 'make 'scheme-number
-       (lambda (x) (tag x)))
   (put 'equ? '(scheme-number scheme-number)
        (lambda (x y) (= x y)))
   (put '=zero? '(scheme-number)
        (lambda (x) (= x 0)))
+  (put 'raise '(scheme-number)
+       (lambda (x) (make-rational x 1)))
+  (put 'square '(scheme-number) square)
+  (put 'sin '(scheme-number) sin)
+  (put 'cos '(scheme-number) cos)
+  (put 'atan '(scheme-number scheme-number) atan)
+
+  (put 'make 'scheme-number
+       (lambda (x) (tag x)))
   'done)
 
 (define (make-scheme-number n)
@@ -150,6 +153,19 @@
                         (* (numer y) (denom x)))))
   (put '=zero? '(rational)
        (lambda (x) (= (numer x) 0)))
+  (put 'raise '(rational)
+       (lambda (x) (make-complex-from-real-imag (/ (numer x) (denom x)) 0)))
+  (put 'project '(rational)
+       (lambda (x) (make-scheme-number (round (/ (numer x) (denom x))))))
+  (put 'square '(rational)
+       (lambda (x) (square (/ (numer x) (denom x)))))
+  (put 'sin '(rational)
+       (lambda (x) (sin (/ (numer x) (denom x)))))
+  (put 'cos '(rational)
+       (lambda (x) (cos (/ (numer x) (denom x)))))
+  (put 'atan '(rational rational)
+       (lambda (x y) (atan (/ (numer x) (denom x))
+                           (/ (numer y) (denom y)))))
 
   (put 'make 'rational
        (lambda (n d) (tag (make-rat n d))))
@@ -193,6 +209,12 @@
                             (= (imag-part z1) (imag-part z2)))))
   (put '=zero? '(complex)
        (lambda (z) (= (real-part z) (imag-part z) 0)))
+  (put 'project '(complex)
+       (lambda (x)
+         (let ((real (real-part x)))
+           (make-rational (inexact->exact (numerator real))
+                          (inexact->exact (denominator real))))))
+
   (put 'make-from-real-imag 'complex
        (lambda (x y) (tag (make-from-real-imag x y))))
   (put 'make-from-mag-ang 'complex
