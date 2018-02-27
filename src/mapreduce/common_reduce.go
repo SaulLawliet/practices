@@ -1,5 +1,10 @@
 package mapreduce
 
+import (
+	"encoding/json"
+	"os"
+)
+
 func doReduce(
 	jobName string, // the name of the whole MapReduce job
 	reduceTask int, // which reduce task this is
@@ -44,4 +49,32 @@ func doReduce(
 	//
 	// Your code here (Part I).
 	//
+
+	// 依次读取中间文件的数据, 写入 kvsMap 中
+	kvsMap := make(map[string][]string)
+	var kv KeyValue
+	for i := 0; i < nMap; i++ {
+		f, _ := os.Open(reduceName(jobName, i, reduceTask))
+		defer f.Close()
+		dec := json.NewDecoder(f)
+		for {
+			if err := dec.Decode(&kv); err != nil { // 已读完文件
+				break
+			}
+			_, ok := kvsMap[kv.Key]
+			if ok {
+				kvsMap[kv.Key] = append(kvsMap[kv.Key], kv.Value)
+			} else {
+				kvsMap[kv.Key] = []string{kv.Value}
+			}
+		}
+	}
+
+	// reduceF() 每个 kvsMap 中的数据, 写入结果文件中
+	f, _ := os.Create(outFile)
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	for k, v := range kvsMap {
+		enc.Encode(KeyValue{k, reduceF(k, v)})
+	}
 }
