@@ -49,9 +49,14 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 				NumOtherPhase: n_other,
 			}
 
-			worker := <-registerChan
-			call(worker, "Worker.DoTask", args, nil)
-			go func() { registerChan <- worker }() // 用完后归还 worker
+			for {
+				worker := <-registerChan
+				// 失败时不用归还 worker， 因为 worker 不会恢复
+				if call(worker, "Worker.DoTask", args, nil) {
+					go func() { registerChan <- worker }() // 用完后归还 worker
+					break
+				}
+			}
 		}()
 	}
 	wg.Wait()
