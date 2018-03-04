@@ -1,7 +1,10 @@
 package mapreduce
 
 import (
+	"encoding/json"
 	"hash/fnv"
+	"io/ioutil"
+	"os"
 )
 
 func doMap(
@@ -53,6 +56,20 @@ func doMap(
 	//
 	// Your code here (Part I).
 	//
+
+	// 提前创建中间文件
+	encs := make([]*json.Encoder, nReduce)
+	for i := 0; i < nReduce; i++ {
+		f, _ := os.Create(reduceName(jobName, mapTask, i))
+		defer f.Close()
+		encs[i] = json.NewEncoder(f)
+	}
+
+	// 将 mapF() 生成的数据, 根据 ihash() 写入不同的中间文件中
+	bytes, _ := ioutil.ReadFile(inFile)
+	for _, kv := range mapF(inFile, string(bytes)) {
+		encs[ihash(kv.Key)%nReduce].Encode(kv)
+	}
 }
 
 func ihash(s string) int {

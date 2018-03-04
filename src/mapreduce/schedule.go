@@ -1,6 +1,9 @@
 package mapreduce
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 //
 // schedule() starts and waits for all tasks in the given phase (mapPhase
@@ -30,5 +33,33 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	//
 	// Your code here (Part III, Part IV).
 	//
+
+	var wg sync.WaitGroup
+	for i := 0; i < ntasks; i++ {
+		wg.Add(1)
+		i := i // https://golang.org/doc/effective_go.html#concurrency
+		go func() {
+			defer wg.Done()
+
+			args := DoTaskArgs{
+				JobName:       jobName,
+				File:          mapFiles[i],
+				Phase:         phase,
+				TaskNumber:    i,
+				NumOtherPhase: n_other,
+			}
+
+			for {
+				worker := <-registerChan
+				// 失败时不用归还 worker， 因为 worker 不会恢复
+				if call(worker, "Worker.DoTask", args, nil) {
+					go func() { registerChan <- worker }() // 用完后归还 worker
+					break
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
 	fmt.Printf("Schedule: %v done\n", phase)
 }
