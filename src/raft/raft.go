@@ -17,13 +17,20 @@ package raft
 //   in the same server.
 //
 
-import "sync"
-import "labrpc"
+import (
+	"labrpc"
+	"math/rand"
+	"sync"
+	"time"
+)
 
 // import "bytes"
 // import "labgob"
-
-
+const (
+	stateFollower = iota
+	stateCandidate
+	stateLeader
+)
 
 //
 // as each Raft peer becomes aware that successive log entries are
@@ -54,19 +61,24 @@ type Raft struct {
 	// Your data here (2A, 2B, 2C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
+	state     int
+	voteCount int
+	heartbeat chan struct{}
+	stoped    bool
 
+	// Persistent state on all servers:
+	currentTerm int
+	votedFor    int
 }
 
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-
-	var term int
-	var isleader bool
 	// Your code here (2A).
-	return term, isleader
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.currentTerm, rf.state == stateLeader
 }
-
 
 //
 // save Raft's persistent state to stable storage,
@@ -83,7 +95,6 @@ func (rf *Raft) persist() {
 	// data := w.Bytes()
 	// rf.persister.SaveRaftState(data)
 }
-
 
 //
 // restore previously persisted state.
@@ -107,15 +118,14 @@ func (rf *Raft) readPersist(data []byte) {
 	// }
 }
 
-
-
-
 //
 // example RequestVote RPC arguments structure.
 // field names must start with capital letters!
 //
 type RequestVoteArgs struct {
 	// Your data here (2A, 2B).
+	Term        int
+	CandidateID int
 }
 
 //
@@ -124,6 +134,8 @@ type RequestVoteArgs struct {
 //
 type RequestVoteReply struct {
 	// Your data here (2A).
+	Term        int
+	VoteGranted bool
 }
 
 //
@@ -131,6 +143,53 @@ type RequestVoteReply struct {
 //
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	reply.VoteGranted = false
+
+	if args.Term < rf.currentTerm {
+		reply.Term = rf.currentTerm
+		return
+	}
+	if args.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.state = stateFollower
+		rf.votedFor = -1
+	}
+
+	if rf.votedFor == -1 || rf.votedFor == args.CandidateID {
+		rf.votedFor = args.CandidateID
+		reply.VoteGranted = true
+		rf.heartbeat <- struct{}{}
+	}
+}
+
+type AppendEntriesArgs struct {
+	Term     int
+	LeaderID int
+}
+type AppendEntriesReply struct {
+	Term    int
+	Success bool
+}
+
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if args.Term < rf.currentTerm {
+		reply.Success = false
+		reply.Term = rf.currentTerm
+		return
+	}
+
+	if args.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.state = stateFollower
+	}
+
+	reply.Success = true
+	rf.heartbeat <- struct{}{}
 }
 
 //
@@ -167,6 +226,10 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	return ok
 }
 
+func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
+	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+	return ok
+}
 
 //
 // the service using Raft (e.g. a k/v server) wants to start
@@ -188,7 +251,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	// Your code here (2B).
 
-
 	return index, term, isLeader
 }
 
@@ -200,6 +262,15 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 //
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.stoped = true
+	rf.heartbeat <- struct{}{} // 防止状态切换为 candidate
+}
+
+func (rf *Raft) DPrintf(format string, a ...interface{}) {
+	DPrintf("[server: %d, term: %2d] "+format,
+		append([]interface{}{rf.me, rf.currentTerm}, a...)...)
 }
 
 //
@@ -221,10 +292,126 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
+	rf.state = stateFollower
+	rf.heartbeat = make(chan struct{})
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
+	go func() {
+		for {
+			rf.mu.Lock()
+			if rf.stoped {
+				break
+			}
+			state := rf.state
+			rf.mu.Unlock()
+
+			switch state {
+			case stateCandidate:
+				go rf.doLeaderElection()
+			case stateLeader:
+				go rf.doHeartbeats()
+			}
+
+			select {
+			case <-rf.heartbeat:
+			case <-time.After(time.Millisecond * time.Duration((rand.Intn(150) + 150))):
+				rf.mu.Lock()
+				rf.state = stateCandidate
+				rf.currentTerm++
+				rf.votedFor = rf.me
+				rf.voteCount = 1
+				rf.DPrintf("loop() --- election timeout, turning to CANDIDATE")
+				rf.mu.Unlock()
+			}
+		}
+	}()
 
 	return rf
+}
+
+func (rf *Raft) doLeaderElection() {
+	rf.DPrintf("doLeaderElection()")
+	size := len(rf.peers)
+	rf.mu.Lock()
+	args := RequestVoteArgs{
+		Term:        rf.currentTerm,
+		CandidateID: rf.me,
+	}
+	rf.mu.Unlock()
+
+	for i := 0; i < size; i++ {
+		if i == rf.me {
+			continue
+		}
+		i := i
+		go func() {
+			reply := RequestVoteReply{}
+			if rf.sendRequestVote(i, &args, &reply) {
+				rf.mu.Lock()
+				defer rf.mu.Unlock()
+				rf.DPrintf("doLeaderElection()  -> ask to server:%d", i)
+
+				if rf.state != stateCandidate {
+					rf.DPrintf("doLeaderElection()  -> already done, skip")
+					return
+				}
+
+				if reply.Term > rf.currentTerm {
+					rf.DPrintf("doLeaderElection()  -> discover high term, convert to FOLLOW")
+					rf.currentTerm = reply.Term
+					rf.state = stateFollower
+					rf.heartbeat <- struct{}{}
+				} else if reply.VoteGranted {
+					rf.voteCount++
+					rf.DPrintf("doLeaderElection()  -> recived vote, now votes:%d", rf.voteCount)
+					if rf.voteCount > size/2 {
+						rf.DPrintf("doLeaderElection()  -> success, convert to LEADER")
+						rf.state = stateLeader
+						rf.heartbeat <- struct{}{}
+					}
+				}
+			}
+		}()
+	}
+}
+
+func (rf *Raft) doHeartbeats() {
+	rf.DPrintf("doHeartbeats()")
+	rf.mu.Lock()
+	args := AppendEntriesArgs{
+		Term:     rf.currentTerm,
+		LeaderID: rf.me,
+	}
+	rf.mu.Unlock()
+
+	for i := 0; i < len(rf.peers); i++ {
+		if i == rf.me {
+			continue
+		}
+		i := i
+		go func() {
+			reply := AppendEntriesReply{}
+			if rf.sendAppendEntries(i, &args, &reply) {
+				rf.mu.Lock()
+				defer rf.mu.Unlock()
+				rf.DPrintf("doHeartbeats()  -> ask to server:%d", i)
+
+				if rf.state != stateLeader {
+					rf.DPrintf("doHeartbeats()  -> not LEADER, skip")
+					return
+				}
+
+				if reply.Term > rf.currentTerm {
+					rf.DPrintf("doHeartbeats()  -> discover high term, turing to FOLLOW")
+					rf.currentTerm = reply.Term
+					rf.state = stateFollower
+				}
+			}
+		}()
+	}
+
+	time.Sleep(time.Millisecond * 100)
+	rf.heartbeat <- struct{}{}
 }
