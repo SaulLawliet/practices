@@ -72,3 +72,12 @@ func (log *logEntries) rest(index int) []LogEntry {
 	copy(entries, log.entries[index:]) // 一定要 copy()，不然会引起 DATA RACE
 	return entries
 }
+
+func (log *logEntries) findIndexByTerm(term int) int {
+	for i := range log.entries {
+		if log.entries[i].Term == term {
+			return log.entries[i].Index
+		}
+	}
+	return 1
+}
